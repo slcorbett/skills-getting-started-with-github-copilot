@@ -78,6 +78,50 @@ activities = {
 }
 
 
+# ==================== Business Logic Functions ====================
+
+def get_all_activities(activities_db: dict) -> dict:
+    """
+    Retrieve all activities.
+    
+    Args:
+        activities_db: Dictionary of activities
+    
+    Returns:
+        Dictionary of all activities
+    """
+    return activities_db.copy()
+
+
+def signup_for_activity(activity_name: str, email: str, activities_db: dict) -> dict:
+    """
+    Sign up a student for an activity.
+    
+    Args:
+        activity_name: Name of the activity
+        email: Student email
+        activities_db: Dictionary of activities (mutated if successful)
+    
+    Returns:
+        Dictionary with 'success' bool and 'message' string
+    """
+    # Validate activity exists
+    if activity_name not in activities_db:
+        return {"success": False, "error": "Activity not found"}
+    
+    activity = activities_db[activity_name]
+    
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        return {"success": False, "error": "Student already signed up for this activity"}
+    
+    # Add student to activity
+    activity["participants"].append(email)
+    return {"success": True, "message": f"Signed up {email} for {activity_name}"}
+
+
+# ==================== Route Handlers ====================
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
@@ -85,23 +129,16 @@ def root():
 
 @app.get("/activities")
 def get_activities():
-    return activities
+    return get_all_activities(activities)
 
 
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup(activity_name: str, email: str):
     """Sign up a student for an activity"""
-    # Validate activity exists
-    if activity_name not in activities:
-        raise HTTPException(status_code=404, detail="Activity not found")
-
-    # Get the specific activity
-    activity = activities[activity_name]
-
-    # Validate student is not already signed up    
-    if email in activity["participants"]:
-        raise HTTPException(status_code=400, detail="Student already signed up for this activity")  
-
-    # Add student
-    activity["participants"].append(email)
-    return {"message": f"Signed up {email} for {activity_name}"}
+    result = signup_for_activity(activity_name, email, activities)
+    
+    if not result["success"]:
+        status_code = 404 if "not found" in result["error"].lower() else 400
+        raise HTTPException(status_code=status_code, detail=result["error"])
+    
+    return {"message": result["message"]}
